@@ -1,9 +1,16 @@
 import { supabase } from './supabase'
 import { APP_URL } from './brand'
 
+function checkoutAppUrl(): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin
+  }
+  return APP_URL
+}
+
 export async function createCheckoutSession(priceId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-    body: { priceId, appUrl: APP_URL },
+    body: { priceId, appUrl: checkoutAppUrl() },
   })
 
   if (error) throw new Error(error.message)
@@ -13,7 +20,7 @@ export async function createCheckoutSession(priceId: string): Promise<string> {
 
 export async function createPortalSession(): Promise<string> {
   const { data, error } = await supabase.functions.invoke('create-portal-session', {
-    body: { appUrl: APP_URL },
+    body: { appUrl: checkoutAppUrl() },
   })
 
   if (error) throw new Error(error.message)

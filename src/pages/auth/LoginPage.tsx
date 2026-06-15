@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { APP_NAME } from '../../lib/brand'
 import { Button } from '../../components/ui/Button'
@@ -7,6 +7,12 @@ import { Input } from '../../components/ui/Input'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from as { pathname?: string; search?: string } | undefined
+  const redirectTo = from?.pathname
+    ? `${from.pathname}${from.search ?? ''}`
+    : '/inbox'
+  const afterCheckout = redirectTo.includes('success=true')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,7 +34,7 @@ export function LoginPage() {
       return
     }
 
-    navigate('/inbox')
+    navigate(redirectTo, { replace: true })
   }
 
   return (
@@ -40,7 +46,9 @@ export function LoginPage() {
             {APP_NAME}
           </h1>
           <p className="text-sm text-[#6B7280] mt-1">
-            Sign in to your account
+            {afterCheckout
+              ? 'Sign in to finish activating your subscription'
+              : 'Sign in to your account'}
           </p>
         </div>
 

@@ -1,9 +1,9 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth()
-
+  const location = useLocation()
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F7F4] flex items-center justify-center">
@@ -23,7 +23,7 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <Outlet />

@@ -36,7 +36,7 @@ export function resolveAppUrl(requested?: string | null): string {
     const allowed =
       /^http:\/\/localhost(:\d+)?$/.test(origin) ||
       /^https:\/\/relayinn\.vercel\.app$/.test(origin) ||
-      /^https:\/\/relayinn-[a-z0-9-]+\.vercel\.app$/.test(origin) ||
+      /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin) ||
       /^https:\/\/app\.relayinn\.com$/.test(origin)
 
     if (allowed) return origin
