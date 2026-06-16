@@ -133,28 +133,17 @@ export async function findHotelForIncomingMessage(
   supabase: SupabaseClient,
   phoneNumberIdFromPayload?: string | null
 ): Promise<string | null> {
-  const metaPhoneId = phoneNumberIdFromPayload ?? Deno.env.get('META_PHONE_NUMBER_ID')
+  if (!phoneNumberIdFromPayload) return null
 
-  if (metaPhoneId) {
-    const { data } = await supabase
-      .from('hotels')
-      .select('id')
-      .eq('whatsapp_phone_number_id', metaPhoneId)
-      .eq('whatsapp_connected', true)
-      .limit(1)
-      .maybeSingle()
-    if (data?.id) return data.id
-  }
-
-  const { data: fallback } = await supabase
+  const { data } = await supabase
     .from('hotels')
     .select('id')
+    .eq('whatsapp_phone_number_id', phoneNumberIdFromPayload)
     .eq('whatsapp_connected', true)
-    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  return fallback?.id ?? null
+  return data?.id ?? null
 }
 
 export async function findOrCreateGuest(

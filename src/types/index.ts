@@ -14,6 +14,7 @@ export interface Hotel {
   whatsapp_phone: string | null
   whatsapp_phone_number_id: string | null
   whatsapp_connected: boolean
+  meta_waba_id: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   trial_ends_at: string | null

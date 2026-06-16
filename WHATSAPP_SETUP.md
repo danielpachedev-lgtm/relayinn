@@ -1,100 +1,101 @@
 # WhatsApp Setup for RelayInn
 
-RelayInn uses the **Meta WhatsApp Business Cloud API**. Credentials are stored as Supabase edge function secrets — hotels register their test recipient phone and Meta Phone Number ID in Settings.
+RelayInn uses the **Meta WhatsApp Business Cloud API** with **Embedded Signup** so each hotel connects their own WhatsApp Business number in Settings — no manual setup from RelayInn staff.
 
 ## Prerequisites
 
 - A [Meta Developer](https://developers.facebook.com/) app with WhatsApp product enabled
 - Supabase CLI linked to your project (`vpeagsczoyizqevozrlb`)
-- A test phone number added as a recipient in Meta Dashboard
+- Embedded Signup configuration created in Meta Dashboard
 
 ## Supabase secrets
 
 ```bash
 supabase secrets set META_APP_ID=your_app_id
-supabase secrets set META_PHONE_NUMBER_ID=your_phone_number_id
-supabase secrets set META_WHATSAPP_BUSINESS_ACCOUNT_ID=your_waba_id
-supabase secrets set META_ACCESS_TOKEN=your_access_token
-supabase secrets set META_WEBHOOK_VERIFY_TOKEN=your_verify_token
 supabase secrets set META_APP_SECRET=your_app_secret
+supabase secrets set META_WEBHOOK_VERIFY_TOKEN=your_verify_token
 ```
 
-> **Security:** Never commit access tokens to git. Rotate tokens if they are ever exposed.
+Legacy sandbox secrets (`META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`) are optional fallbacks for hotels connected before Embedded Signup.
 
-## Database migration
+> **Security:** Never commit access tokens to git. Per-hotel tokens are stored in `hotels.meta_access_token` (server-side only).
+
+## Frontend environment variables
+
+Add to `.env` (and Vercel):
+
+```env
+VITE_META_APP_ID=your_app_id
+VITE_META_CONFIG_ID=your_embedded_signup_config_id
+```
+
+## Database migrations
 
 ```bash
 supabase db push
 ```
 
-This adds `whatsapp_phone_number_id` to the `hotels` table (migration `013_meta_whatsapp.sql`).
+- `013_meta_whatsapp.sql` — `whatsapp_phone_number_id`
+- `014_meta_embedded_signup.sql` — `meta_access_token`, `meta_waba_id`
 
 ## Deploy edge functions
 
 ```bash
 supabase functions deploy meta-whatsapp-webhook --no-verify-jwt
-supabase functions deploy send-meta-whatsapp
+supabase functions deploy send-meta-whatsapp --no-verify-jwt
+supabase functions deploy meta-exchange-token --no-verify-jwt
 ```
 
-> **Important:** `meta-whatsapp-webhook` must be deployed with `--no-verify-jwt` because Meta sends webhook requests without a Supabase JWT. Security is enforced via `X-Hub-Signature-256` validation using `META_APP_SECRET`.
+> **Important:** Webhook and token exchange endpoints use `--no-verify-jwt` because Meta webhooks have no JWT, and auth is verified inside each function.
 
-## Configure Meta webhook
+## Embedded Signup Setup
 
-After deploying `meta-whatsapp-webhook`:
+### In Meta Developer Console
 
-1. Go to [developers.facebook.com](https://developers.facebook.com) → your app → **WhatsApp** → **Configuration**
-2. In the **Webhooks** section:
-   - **Callback URL:** `https://vpeagsczoyizqevozrlb.supabase.co/functions/v1/meta-whatsapp-webhook`
-   - **Verify token:** same value as `META_WEBHOOK_VERIFY_TOKEN`
-3. Click **Verify and save**
-4. Subscribe to the **messages** field
+1. Go to your RelayInn app → **WhatsApp** → **Embedded Signup**
+2. Create a new configuration
+3. Copy the **Config ID** → add to `.env` as `VITE_META_CONFIG_ID`
+4. Set allowed domains:
+   - `https://relayinn.vercel.app`
+   - `http://localhost:5173`
 
-## Add test recipient
+### Configure app webhook (once per RelayInn app)
 
-In Meta Dashboard → **WhatsApp** → **API Setup**:
+1. Go to **WhatsApp** → **Configuration**
+2. **Callback URL:** `https://vpeagsczoyizqevozrlb.supabase.co/functions/v1/meta-whatsapp-webhook`
+3. **Verify token:** same value as `META_WEBHOOK_VERIFY_TOKEN`
+4. Subscribe to **messages**
 
-- In the **To** field, add your personal phone number as a test recipient
-- This lets you receive messages from the Meta test number (`+1 555 655 9820`)
-
-## Connect in RelayInn
-
-1. Open **Settings → Integrations → WhatsApp**
-2. Enter your personal phone (test recipient) in E.164 format, e.g. `+34612345678`
-3. Enter your **Meta Phone Number ID** from the Meta Dashboard
-4. Click **Connect WhatsApp**
-5. Use **Send test message** to verify outbound messaging
+When a hotel completes Embedded Signup, RelayInn also calls `POST /{wabaId}/subscribed_apps` to subscribe that WABA to your app.
 
 ## How it works
 
-1. Guest sends WhatsApp to the Meta test number
-2. Meta POSTs to `meta-whatsapp-webhook`
-3. Webhook finds the connected hotel, looks up or creates guest and conversation
-4. Message is saved with `sender_type='guest'`
-5. Inbox real-time subscription shows the message instantly
-6. Staff replies → frontend calls `send-meta-whatsapp`
-7. Edge function sends via Meta Graph API and saves the staff message
+1. Hotel clicks **Connect with WhatsApp** in Settings
+2. Meta Embedded Signup popup opens (Facebook Login)
+3. Hotel selects their WhatsApp Business account and number
+4. Meta returns an authorization code to RelayInn
+5. `meta-exchange-token` exchanges the code for a permanent access token
+6. RelayInn saves `meta_access_token`, `whatsapp_phone_number_id`, and `meta_waba_id` for that hotel
+7. Inbound messages are routed by `metadata.phone_number_id` in the webhook
+8. Outbound messages use each hotel's own token via `send-meta-whatsapp`
 
-## Test the flow
+## Test Embedded Signup
 
-1. Add your personal number as a test recipient in Meta Dashboard
-2. From your personal WhatsApp, send a message to **+1 555 655 9820**
-3. The message should appear in RelayInn inbox within seconds
-4. Reply from the inbox — it should arrive on your WhatsApp
-5. In **Settings → Integrations → WhatsApp**, use **Send test message** to verify outbound
-
-## Meta sandbox limitations
-
-- Only numbers added as test recipients can send/receive messages during development
-- Test numbers are for development only
-- For production: complete Meta Business verification and register a production phone number
+1. Add `VITE_META_APP_ID` and `VITE_META_CONFIG_ID` to `.env`
+2. Go to **Settings → Integrations → WhatsApp**
+3. Click **Connect with WhatsApp**
+4. Complete the Meta popup with a test WhatsApp Business account
+5. Verify in Supabase: `hotels.whatsapp_phone_number_id` and `meta_access_token` are set
+6. Send a WhatsApp to the hotel's number → appears in inbox
+7. Reply from inbox → arrives on guest's phone
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Webhook verification fails | Check `META_WEBHOOK_VERIFY_TOKEN` matches Meta Dashboard |
-| Webhook returns 403 on POST | Check `META_APP_SECRET` is set and matches your Meta app |
-| Messages not appearing | Confirm webhook URL is correct, subscribed to `messages`, function deployed with `--no-verify-jwt` |
-| Send fails "Guest has no phone" | Add a phone number to the guest record (E.164 format, e.g. `+34612345678`) |
-| Send fails with Meta API error | Ensure recipient is added as test recipient in Meta Dashboard |
-| Test message not received | Confirm hotel `whatsapp_phone` matches your registered test recipient |
+| "WhatsApp signup is not configured" | Set `VITE_META_CONFIG_ID` in `.env` / Vercel |
+| Meta popup doesn't open | Check `VITE_META_APP_ID` and allowed domains in Meta Dashboard |
+| Token exchange fails | Verify `META_APP_ID` and `META_APP_SECRET` Supabase secrets |
+| No WABA found | Ensure the Meta account has a WhatsApp Business number linked |
+| Messages not routed | Confirm `whatsapp_phone_number_id` matches webhook `metadata.phone_number_id` |
+| Send fails | Hotel must complete Embedded Signup so `meta_access_token` is saved |

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { HOTEL_PUBLIC_SELECT } from '../lib/hotelColumns'
 import { useHotelStore } from '../store/hotelStore'
 
 export async function loadHotelData(userId: string) {
@@ -19,7 +20,7 @@ export async function loadHotelData(userId: string) {
   // Step 2: get the hotel separately
   const { data: hotelData, error: hotelErr } = await supabase
     .from('hotels')
-    .select('*')
+    .select(HOTEL_PUBLIC_SELECT)
     .eq('id', staffData.hotel_id)
     .single()
 

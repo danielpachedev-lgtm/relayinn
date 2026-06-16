@@ -30,14 +30,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ success: false, error: 'Missing required fields' }, 400)
     }
 
-    const accessToken = Deno.env.get('META_ACCESS_TOKEN')
-    const phoneNumberId = Deno.env.get('META_PHONE_NUMBER_ID')
-    console.log('[send-meta-whatsapp] META_ACCESS_TOKEN present:', !!accessToken, 'length:', accessToken?.length ?? 0)
-
-    if (!accessToken || !phoneNumberId) {
-      return jsonResponse({ success: false, error: 'Messaging service not configured' }, 500)
-    }
-
     const { data: staff } = await admin
       .from('staff')
       .select('id, hotel_id')
@@ -47,6 +39,23 @@ Deno.serve(async (req) => {
 
     if (!staff) {
       return jsonResponse({ success: false, error: 'Forbidden' }, 403)
+    }
+
+    const { data: hotelCreds } = await admin
+      .from('hotels')
+      .select('meta_access_token, whatsapp_phone_number_id')
+      .eq('id', staff.hotel_id)
+      .single()
+
+    const accessToken =
+      hotelCreds?.meta_access_token ?? Deno.env.get('META_ACCESS_TOKEN') ?? null
+    const phoneNumberId =
+      hotelCreds?.whatsapp_phone_number_id ?? Deno.env.get('META_PHONE_NUMBER_ID') ?? null
+
+    console.log('[send-meta-whatsapp] Using hotel token:', !!hotelCreds?.meta_access_token)
+
+    if (!accessToken || !phoneNumberId) {
+      return jsonResponse({ success: false, error: 'WhatsApp not configured for this hotel' }, 500)
     }
 
     const { data: conversation, error: convoErr } = await admin
