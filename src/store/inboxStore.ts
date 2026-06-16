@@ -12,6 +12,7 @@ interface InboxStore {
 
   setMessages: (conversationId: string, messages: Message[]) => void
   appendMessage: (conversationId: string, message: Message) => void
+  removeMessage: (conversationId: string, messageId: string) => void
   clearMessages: (conversationId: string) => void
 }
 
@@ -45,13 +46,31 @@ export const useInboxStore = create<InboxStore>((set) => ({
     set((state) => {
       const existing = state.messages[conversationId] ?? []
       if (existing.some((m) => m.id === message.id)) return state
+
+      const withoutPendingDuplicate =
+        message.sender_type === 'staff' && !message.id.startsWith('pending-')
+          ? existing.filter(
+              (m) => !(m.id.startsWith('pending-') && m.content === message.content)
+            )
+          : existing
+
       return {
         messages: {
           ...state.messages,
-          [conversationId]: [...existing, message],
+          [conversationId]: [...withoutPendingDuplicate, message],
         },
       }
     }),
+
+  removeMessage: (conversationId, messageId) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [conversationId]: (state.messages[conversationId] ?? []).filter(
+          (m) => m.id !== messageId
+        ),
+      },
+    })),
 
   clearMessages: (conversationId) =>
     set((state) => {
