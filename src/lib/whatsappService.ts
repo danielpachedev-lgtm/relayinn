@@ -1,11 +1,36 @@
-import { FunctionsHttpError } from '@supabase/supabase-js'
+import { FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
 export interface SendWhatsAppResult {
   success: boolean
-  messageSid?: string
+  messageId?: string
   error?: string
   status?: number
+}
+
+async function parseFunctionError(error: unknown): Promise<SendWhatsAppResult> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json()
+      return {
+        success: false,
+        error: body?.error ?? error.message,
+        status: error.context.status,
+      }
+    } catch {
+      return { success: false, error: error.message, status: error.context.status }
+    }
+  }
+
+  if (error instanceof FunctionsRelayError) {
+    return { success: false, error: error.message }
+  }
+
+  if (error instanceof Error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: false, error: 'Failed to send message' }
 }
 
 export async function sendWhatsAppMessage(
@@ -13,24 +38,23 @@ export async function sendWhatsAppMessage(
   message: string,
   staffId: string
 ): Promise<SendWhatsAppResult> {
-  const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.access_token) {
+    return { success: false, error: 'Session expired. Please log in again.' }
+  }
+
+  const { data, error } = await supabase.functions.invoke('send-meta-whatsapp', {
     body: { conversationId, message, staffId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   })
 
   if (error) {
-    if (error instanceof FunctionsHttpError) {
-      try {
-        const body = await error.context.json()
-        return {
-          success: false,
-          error: body?.error ?? error.message,
-          status: error.context.status,
-        }
-      } catch {
-        return { success: false, error: error.message, status: error.context.status }
-      }
-    }
-    return { success: false, error: error.message }
+    return parseFunctionError(error)
   }
 
   if (data?.success === false) {
@@ -41,7 +65,7 @@ export async function sendWhatsAppMessage(
     }
   }
 
-  return { success: true, messageSid: data?.messageSid }
+  return { success: true, messageId: data?.messageId }
 }
 
 export async function ensureTestConversation(

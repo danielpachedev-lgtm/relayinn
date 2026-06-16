@@ -12,6 +12,7 @@ export interface Hotel {
   timezone: string | null
   default_language: string | null
   whatsapp_phone: string | null
+  whatsapp_phone_number_id: string | null
   whatsapp_connected: boolean
   stripe_customer_id: string | null
   stripe_subscription_id: string | null

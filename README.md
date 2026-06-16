@@ -8,7 +8,7 @@ Shared inbox for independent hotels — WhatsApp, email, and Instagram in one pl
 - Tailwind CSS v4
 - Supabase (auth, database, edge functions, realtime)
 - Stripe (subscriptions)
-- Twilio (WhatsApp, being replaced by Meta Cloud API)
+- Meta WhatsApp Business Cloud API
 - Vercel (frontend hosting)
 
 ## Local development
@@ -94,7 +94,7 @@ npx supabase functions deploy stripe-webhook --no-verify-jwt --project-ref YOUR_
 ## Documentation
 
 - [STRIPE_SETUP.md](./STRIPE_SETUP.md) — subscriptions and billing
-- [WHATSAPP_SETUP.md](./WHATSAPP_SETUP.md) — WhatsApp via Twilio (legacy)
+- [WHATSAPP_SETUP.md](./WHATSAPP_SETUP.md) — Meta WhatsApp Cloud API
 
 ## Scripts
 

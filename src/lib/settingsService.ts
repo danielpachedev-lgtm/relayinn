@@ -55,11 +55,16 @@ export async function removeStaffMember(staffId: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-export async function connectWhatsApp(hotelId: string, number: string): Promise<Hotel> {
+export async function connectWhatsApp(
+  hotelId: string,
+  number: string,
+  phoneNumberId: string
+): Promise<Hotel> {
   const { data, error } = await supabase
     .from('hotels')
     .update({
       whatsapp_phone: number.trim(),
+      whatsapp_phone_number_id: phoneNumberId.trim(),
       whatsapp_connected: true,
     })
     .eq('id', hotelId)
@@ -76,6 +81,7 @@ export async function disconnectWhatsApp(hotelId: string): Promise<Hotel> {
     .update({
       whatsapp_connected: false,
       whatsapp_phone: null,
+      whatsapp_phone_number_id: null,
     })
     .eq('id', hotelId)
     .select()
@@ -91,7 +97,7 @@ export async function sendTestWhatsApp(
   staffId: string
 ): Promise<void> {
   const message =
-    `Hello from ${APP_NAME}! ✅ Your WhatsApp is successfully connected.`
+    `Hello from ${APP_NAME}! Your WhatsApp is successfully connected via Meta Cloud API.`
   const conversationId = await ensureTestConversation(hotelId, hotelPhone)
   const result = await sendWhatsAppMessage(conversationId, message, staffId)
   if (!result.success) {

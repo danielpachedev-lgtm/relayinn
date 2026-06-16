@@ -83,6 +83,7 @@ export function IntegrationsSection() {
           {connected ? (
             <ConnectedView
               number={currentHotel.whatsapp_phone}
+              phoneNumberId={currentHotel.whatsapp_phone_number_id}
               onTest={handleTestMessage}
               testing={sendingTest}
               onDisconnect={() => setDisconnectOpen(true)}
@@ -142,20 +143,29 @@ function StatusBadge({ connected }: { connected: boolean }) {
 
 function ConnectedView({
   number,
+  phoneNumberId,
   onTest,
   testing,
   onDisconnect,
 }: {
   number: string | null
+  phoneNumberId: string | null
   onTest: () => void
   testing: boolean
   onDisconnect: () => void
 }) {
   return (
     <div className="space-y-4">
+      <p className="text-sm text-[#16A34A] font-medium">Test number active (Meta sandbox)</p>
       <p className="text-sm text-[#6B7280]">
-        WhatsApp number: <span className="font-medium text-[#111827]">{number ?? '—'}</span>
+        Test recipient: <span className="font-medium text-[#111827]">{number ?? '—'}</span>
       </p>
+      {phoneNumberId && (
+        <p className="text-sm text-[#6B7280]">
+          Meta Phone Number ID:{' '}
+          <span className="font-medium text-[#111827]">{phoneNumberId}</span>
+        </p>
+      )}
       <div className="flex gap-2">
         <Button onClick={onTest} loading={testing} variant="secondary">
           Send test message
@@ -176,6 +186,7 @@ function ConnectForm({
   onConnected: (hotel: import('../../types').Hotel) => void
 }) {
   const [phone, setPhone] = useState('')
+  const [phoneNumberId, setPhoneNumberId] = useState('')
   const [connecting, setConnecting] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
@@ -184,9 +195,13 @@ function ConnectForm({
       toast.error('Enter a valid number in format +1234567890')
       return
     }
+    if (!phoneNumberId.trim()) {
+      toast.error('Enter your Meta Phone Number ID')
+      return
+    }
     setConnecting(true)
     try {
-      const updated = await connectWhatsApp(hotelId, phone)
+      const updated = await connectWhatsApp(hotelId, phone, phoneNumberId)
       onConnected(updated)
       toast.success('WhatsApp connected')
     } catch (err) {
@@ -198,12 +213,22 @@ function ConnectForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-      <h4 className="text-sm font-semibold text-[#111827]">Connect your WhatsApp Business</h4>
+      <h4 className="text-sm font-semibold text-[#111827]">Connect Meta WhatsApp Business</h4>
+      <p className="text-xs text-[#6B7280]">
+        Add your personal phone as a test recipient in Meta Dashboard → WhatsApp → API Setup.
+      </p>
       <Input
-        label="WhatsApp phone number"
+        label="Your phone (test recipient)"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder="+1234567890"
+        required
+      />
+      <Input
+        label="Meta Phone Number ID"
+        value={phoneNumberId}
+        onChange={(e) => setPhoneNumberId(e.target.value)}
+        placeholder="1116023214934297"
         required
       />
       <Button type="submit" loading={connecting}>
